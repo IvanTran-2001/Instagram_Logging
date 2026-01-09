@@ -365,10 +365,19 @@ class InstagramDMLogger:
             logger.warning(f"Failed to convert timestamp {timestamp_str}: {e}")
             return timestamp_str
     
-    def download_photo(self, url, index):
+    def download_photo(self, url, index, message_timestamp=None):
         """Download a photo from URL"""
         try:
-            timestamp = datetime.now()
+            # Use message timestamp if provided, otherwise use current time
+            if message_timestamp:
+                try:
+                    from dateutil import parser
+                    timestamp = parser.parse(message_timestamp)
+                except:
+                    timestamp = datetime.now()
+            else:
+                timestamp = datetime.now()
+            
             timestamp_sort = timestamp.strftime('%Y%m%d_%H%M%S')
             timestamp_human = timestamp.strftime('%d-%b-%Y_%H-%M-%S')
             filename = f"{timestamp_sort}_{timestamp_human}_{index}.jpg"
@@ -387,10 +396,19 @@ class InstagramDMLogger:
             logger.warning(f"Failed to download photo: {e}")
             return None
     
-    def download_video(self, url, index):
+    def download_video(self, url, index, message_timestamp=None):
         """Download a video from URL"""
         try:
-            timestamp = datetime.now()
+            # Use message timestamp if provided, otherwise use current time
+            if message_timestamp:
+                try:
+                    from dateutil import parser
+                    timestamp = parser.parse(message_timestamp)
+                except:
+                    timestamp = datetime.now()
+            else:
+                timestamp = datetime.now()
+            
             timestamp_sort = timestamp.strftime('%Y%m%d_%H%M%S')
             timestamp_human = timestamp.strftime('%d-%b-%Y_%H-%M-%S')
             filename = f"{timestamp_sort}_{timestamp_human}_{index}.mp4"
@@ -434,7 +452,7 @@ class InstagramDMLogger:
                     if 'video_versions' in media_obj and media_obj['video_versions']:
                         video_url = media_obj['video_versions'][0].get('url')
                         if video_url:
-                            video_path = self.download_video(video_url, f"multi{index}_{vm_idx}")
+                            video_path = self.download_video(video_url, f"multi{index}_{vm_idx}", timestamp)
                             if video_path:
                                 media_paths.append({"type": "video", "path": video_path})
                     # Check for photo
@@ -443,7 +461,7 @@ class InstagramDMLogger:
                         if candidates:
                             photo_url = candidates[0].get('url')
                             if photo_url:
-                                photo_path = self.download_photo(photo_url, f"multi{index}_{vm_idx}")
+                                photo_path = self.download_photo(photo_url, f"multi{index}_{vm_idx}", timestamp)
                                 if photo_path:
                                     media_paths.append({"type": "photo", "path": photo_path})
                 
@@ -476,7 +494,7 @@ class InstagramDMLogger:
                         if 'preview_url_info' in xma and xma['preview_url_info']:
                             url = xma['preview_url_info'].get('url')
                             if url:
-                                photo_path = self.download_photo(url, f"album{index}_{xma_idx}")
+                                photo_path = self.download_photo(url, f"album{index}_{xma_idx}", timestamp)
                                 if photo_path:
                                     album_paths.append(photo_path)
             
@@ -519,7 +537,7 @@ class InstagramDMLogger:
                                 if candidates:
                                     url = candidates[0].get('url')
                                     if url:
-                                        photo_path = self.download_photo(url, f"share{index}_{cm_idx}")
+                                        photo_path = self.download_photo(url, f"share{index}_{cm_idx}", timestamp)
                                         if photo_path:
                                             album_paths.append(photo_path)
                         
@@ -538,7 +556,7 @@ class InstagramDMLogger:
                         if candidates:
                             url = candidates[0].get('url')
                             if url:
-                                photo_path = self.download_photo(url, index)
+                                photo_path = self.download_photo(url, index, timestamp)
                                 if photo_path:
                                     return {
                                         "timestamp": timestamp,
@@ -557,7 +575,7 @@ class InstagramDMLogger:
         # Single photo
         elif hasattr(message, 'media') and message.media and hasattr(message.media, 'thumbnail_url') and message.media.thumbnail_url:
             url = str(message.media.thumbnail_url)
-            photo_path = self.download_photo(url, index)
+            photo_path = self.download_photo(url, index, timestamp)
             
             if photo_path:
                 return {
@@ -570,7 +588,7 @@ class InstagramDMLogger:
         # Video/Reel
         elif hasattr(message, 'media') and message.media and hasattr(message.media, 'video_url') and message.media.video_url:
             url = str(message.media.video_url)
-            video_path = self.download_video(url, index)
+            video_path = self.download_video(url, index, timestamp)
             
             if video_path:
                 return {
