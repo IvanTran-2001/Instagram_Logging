@@ -1,16 +1,17 @@
 # Instagram DM Logger
 
-A Python program to automatically log all direct messages and photos from a specific Instagram friend's conversation. Downloads entire message history, saves as JSON, and creates a beautifully formatted Markdown view of the conversation.
+A Python program to automatically log all direct messages and media from a specific Instagram friend's conversation. Features incremental updates, album extraction, and intelligent early-stop logic for efficient syncing.
 
 ## Features
 
-- ✅ Logs **all** text messages (entire conversation history)
-- ✅ Downloads all photos from the conversation
-- ✅ Skips reels automatically
-- ✅ Saves conversation data as JSON (streaming write - efficient memory usage)
-- ✅ Creates readable Markdown view of conversation with timestamps
-- ✅ Comprehensive logging to file and console
-- ✅ Instagram mobile API (not scraping) - reliable and fast
+- ✅ **Incremental Updates** - Only fetches new messages since last run
+- ✅ **Smart Early-Stop** - Stops fetching when reaching existing messages
+- ✅ **All Message Types** - Text, photos, videos, reels, albums, stories, voice messages, links, GIFs
+- ✅ **Album Extraction** - Properly extracts multiple photos from albums/carousels
+- ✅ **Timezone Conversion** - Converts UTC to Melbourne time (AEDT/AEST)
+- ✅ **Organized Storage** - Photos saved in subfolder with timestamped filenames
+- ✅ **Newest First** - New messages prepended to top of JSON
+- ✅ **Instagram Mobile API** - Reliable and fast (not web scraping)
 
 ## Setup
 
@@ -20,8 +21,8 @@ A Python program to automatically log all direct messages and photos from a spec
    ```
 
 2. **Configure credentials:**
-   - Copy `.env.example` to `.env`
-   - Edit `.env` with your Instagram credentials:
+   - Create a `.env` file in the project root
+   - Add your Instagram credentials:
      ```
      INSTAGRAM_USERNAME=your_username
      INSTAGRAM_PASSWORD=your_password
@@ -33,7 +34,9 @@ A Python program to automatically log all direct messages and photos from a spec
    python main.py
    ```
    
-   This will take approximately 20-35 minutes depending on conversation size (due to Instagram's 1-second API rate limiting for safety).
+   **First run**: Fetches entire conversation history (~40 minutes for 20k messages)
+   
+   **Update runs**: Only fetches new messages (seconds to minutes depending on new message count)
 
 ## Viewing Your Conversation
 
@@ -52,27 +55,39 @@ This creates a `.md` file with:
 
 ## Output
 
-- **JSON Data**: `data/conversation_[friend]_[timestamp].json` - Raw message data
-- **Markdown View**: `data/conversation_[friend]_[timestamp].md` - Human-readable format
-- **Photos**: `data/photo_[index]_[timestamp].jpg` - All downloaded photos
-- **Logs**: `logs/dm_logger_[date].log` - Program execution logs
+The program creates a timestamped conversation folder:
+
+```
+data/conversation_[friend]_[timestamp]/
+├── conversation.json           # All messages (newest first)
+└── photos/                     # All downloaded media
+    ├── 20260109_141232_*.jpg  # Photos
+    └── 20260109_141232_*.mp4  # Videos
+```
+
+**conversation.json** contains:
+- All messages in chronological order (newest at top)
+- Melbourne timezone timestamps
+- Photo/video paths relative to conversation folder
+- Message types: text, photo, video, multi_media, album, shared_album, story_share, voice_message, etc.
 
 ## File Structure
 
 ```
 Instagram_Logging/
-├── main.py                  # Main program (logs messages & downloads photos)
+├── main.py                  # Main program (logs messages & downloads media)
 ├── view_conversation.py     # Converter (JSON to readable Markdown)
 ├── requirements.txt         # Python dependencies
-├── .env                     # Your credentials (create from .env.example)
-├── .env.example             # Template for credentials
-├── README.md                # This file
-├── DOCUMENTATION.md         # Detailed explanation of how everything works
-├── data/                    # Downloaded photos and conversation files
-│   ├── conversation_*.json  # Raw message data
-│   ├── conversation_*.md    # Readable conversation view
-│   └── photo_*.jpg          # Downloaded photos
-└── logs/                    # Log files
+├── .env                     # Your credentials (NOT tracked in git)
+├── .gitignore              # Protects sensitive files
+├── README.md               # This file
+├── DOCUMENTATION.md        # Detailed technical documentation
+├── data/                   # Conversation folders (gitignored)
+│   └── conversation_*/
+│       ├── conversation.json
+│       └── photos/
+├── logs/                   # Program logs (gitignored)
+└── tests/                  # Test scripts (gitignored)
 ```
 
 ## Security Notes
@@ -91,34 +106,39 @@ Instagram_Logging/
 
 ## How It Works
 
-1. **Login**: Authenticates with Instagram using your credentials
-2. **Find Friend**: Searches for the friend's user ID by username
-3. **Fetch Messages**: Downloads entire message history using cursor-based pagination (20 messages per API request)
-4. **Download Photos**: Saves all photos to `data/` folder
-5. **Save Data**: Writes messages to JSON file as they're processed (stream writing)
-6. **Convert (Optional)**: Use `view_conversation.py` to create a readable Markdown view
+### First Run
+1. **Login**: Authenticates with Instagram
+2. **Find Friend**: Searches for friend's user ID
+3. **Fetch All Messages**: Downloads entire conversation history (up to 50,000 messages)
+4. **Fetch Raw Data**: Gets additional API data for album extraction (batched)
+5. **Process Messages**: Extracts text, downloads photos/videos/albums
+6. **Save**: Writes to conversation.json in Melbourne timezone
+
+### Update Runs
+1. **Load Existing**: Reads conversation.json and finds newest message timestamp
+2. **Smart Fetch**: Fetches in batches of 20 messages
+3. **Early Stop**: Stops immediately when finding messages older than newest logged
+4. **Filter New**: Only processes messages not already logged
+5. **Prepend**: Adds new messages to top of JSON file
+
+### Album Extraction
+- Handles `visual_media` arrays (multiple photos in single message)
+- Handles `generic_xma` (shared posts with 4+ photos)
+- Handles `media_share` carousels (Instagram feed posts)
+- Downloads all photos/videos from albums to photos/ subfolder
 
 ## Performance
 
-- **Speed**: ~30 minutes for 40,000 messages (due to Instagram's 1-second safety delay)
-- **Memory**: Efficient streaming processing - doesn't load all messages into RAM
-- **Storage**: Each message is ~200 bytes; photos depend on size (typically 100KB-1MB each)
-
-## Security Notes
-
-- Never commit your `.env` file with real credentials
-- The `.env` file is for local use only
-- Consider using environment variables on production systems
+- **First Run**: ~40 minutes for 20,000 messages (1-second delay per batch of 20)
+- **Update Runs**: Seconds to minutes (stops at first overlap)
+- **Memory**: Efficient - loads only new messages
+- **Storage**: ~200 bytes per message; photos 100KB-1MB each
 
 ## Troubleshooting
 
-- If you get "Login failed", check your credentials
-- If "User not found", verify the friend's username
-- Check `logs/` for detailed error messages
-
-## Future Improvements
-
-- Add support for scrolling through older conversations
-- Add filtering by date range
-- Add support for other media types (videos, documents)
-- Add scheduling for continuous monitoring
+- **"Login failed"**: Check your credentials in .env file
+- **"User not found"**: Verify friend's username is correct
+- **"No new messages"**: Working correctly - you're up to date!
+- **Albums showing "[album - could not extract photos]"**: Old messages before raw data fetch was implemented
+- **Timestamp parsing errors**: Instagram changed API format - check logs for details
+- Check `logs/dm_logger_[date].log` for detailed diagnostics
