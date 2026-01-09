@@ -38,12 +38,13 @@ def convert_json_to_markdown(json_file):
     
     # Count stats
     text_count = sum(1 for m in messages if m.get('type') == 'text')
-    photo_count = sum(1 for m in messages if m.get('type') == 'photo')
+    media_count = sum(1 for m in messages if m.get('type') in ['photo', 'video', 'multi_media', 'album', 'shared_album', 'shared_photo'])
+    other_count = len(messages) - text_count - media_count
     
     with open(output_path, 'w', encoding='utf-8') as f:
         # Write header
         f.write(f"# Chat with {FRIEND_USERNAME}\n\n")
-        f.write(f"**Messages:** {text_count} | **Photos:** {photo_count}\n\n")
+        f.write(f"**Total:** {len(messages)} | **Text:** {text_count} | **Media:** {media_count} | **Other:** {other_count}\n\n")
         f.write("---\n\n")
         
         # Reverse messages to go from oldest to newest
@@ -97,20 +98,125 @@ def convert_json_to_markdown(json_file):
                 else:
                     f.write(f"`{timestamp}` **{username}** 📸 {photo_name}\n\n")
             
-            elif msg_type == 'reel':
+            elif msg_type == 'video':
+                video_path = msg.get('video_path', 'unknown')
+                video_name = Path(video_path).name if video_path else "unknown"
                 if username == "Phuong Anh":
-                    f.write(f"> `{timestamp}` **{username}** 🎬 (reel skipped)\n\n")
+                    f.write(f"> `{timestamp}` **{username}** 🎬 {video_name}\n\n")
                 else:
-                    f.write(f"`{timestamp}` **{username}** 🎬 (reel skipped)\n\n")
+                    f.write(f"`{timestamp}` **{username}** 🎬 {video_name}\n\n")
+            
+            elif msg_type == 'multi_media':
+                media_items = msg.get('media_items', [])
+                item_count = len(media_items)
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 📸 {item_count} items:\n")
+                    for item in media_items:
+                        item_name = Path(item.get('path', '')).name
+                        emoji = "🎬" if item.get('type') == 'video' else "📸"
+                        f.write(f">   {emoji} {item_name}\n")
+                    f.write("\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 📸 {item_count} items:\n")
+                    for item in media_items:
+                        item_name = Path(item.get('path', '')).name
+                        emoji = "🎬" if item.get('type') == 'video' else "📸"
+                        f.write(f"  {emoji} {item_name}\n")
+                    f.write("\n")
+            
+            elif msg_type == 'album':
+                photo_paths = msg.get('photo_paths', [])
+                if photo_paths:
+                    if username == "Phuong Anh":
+                        f.write(f"> `{timestamp}` **{username}** 📚 Album ({len(photo_paths)} photos):\n")
+                        for photo_path in photo_paths:
+                            photo_name = Path(photo_path).name
+                            f.write(f">   📸 {photo_name}\n")
+                        f.write("\n")
+                    else:
+                        f.write(f"`{timestamp}` **{username}** 📚 Album ({len(photo_paths)} photos):\n")
+                        for photo_path in photo_paths:
+                            photo_name = Path(photo_path).name
+                            f.write(f"  📸 {photo_name}\n")
+                        f.write("\n")
+                else:
+                    content = msg.get('content', '[album]')
+                    if username == "Phuong Anh":
+                        f.write(f"> `{timestamp}` **{username}** 📚 {content}\n\n")
+                    else:
+                        f.write(f"`{timestamp}` **{username}** 📚 {content}\n\n")
+            
+            elif msg_type == 'shared_album':
+                photo_paths = msg.get('photo_paths', [])
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🔗 Shared Album ({len(photo_paths)} photos):\n")
+                    for photo_path in photo_paths:
+                        photo_name = Path(photo_path).name
+                        f.write(f">   📸 {photo_name}\n")
+                    f.write("\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🔗 Shared Album ({len(photo_paths)} photos):\n")
+                    for photo_path in photo_paths:
+                        photo_name = Path(photo_path).name
+                        f.write(f"  📸 {photo_name}\n")
+                    f.write("\n")
+            
+            elif msg_type == 'shared_photo':
+                photo_path = msg.get('photo_path', 'unknown')
+                photo_name = Path(photo_path).name if photo_path else "unknown"
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🔗 Shared: {photo_name}\n\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🔗 Shared: {photo_name}\n\n")
+            
+            elif msg_type == 'story_share':
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 📖 Shared a story\n\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 📖 Shared a story\n\n")
+            
+            elif msg_type == 'felix_share':
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🎬 Shared a reel\n\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🎬 Shared a reel\n\n")
+            
+            elif msg_type == 'voice_media':
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🎤 Voice message\n\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🎤 Voice message\n\n")
+            
+            elif msg_type == 'animated_media':
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🎆 GIF/animated media\n\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🎆 GIF/animated media\n\n")
+            
+            elif msg_type == 'link':
+                content = msg.get('content', '[link]')
+                url = msg.get('url', '')
+                if username == "Phuong Anh":
+                    f.write(f"> `{timestamp}` **{username}** 🔗 {content}\n")
+                    if url:
+                        f.write(f">   {url}\n")
+                    f.write("\n")
+                else:
+                    f.write(f"`{timestamp}` **{username}** 🔗 {content}\n")
+                    if url:
+                        f.write(f"  {url}\n")
+                    f.write("\n")
             
             else:
+                # Catch-all for any other message type
+                content = msg.get('content', f'[{msg_type}]')
                 if username == "Phuong Anh":
-                    f.write(f"> `{timestamp}` **{username}** [{msg_type}]\n\n")
+                    f.write(f"> `{timestamp}` **{username}** {content}\n\n")
                 else:
-                    f.write(f"`{timestamp}` **{username}** [{msg_type}]\n\n")
+                    f.write(f"`{timestamp}` **{username}** {content}\n\n")
     
     print(f"✅ Done! Saved to: {output_path.name}")
-    print(f"📊 {text_count} messages, {photo_count} photos")
+    print(f"📊 {len(messages)} total | {text_count} text | {media_count} media | {other_count} other")
 
 
 def find_latest_conversation():
